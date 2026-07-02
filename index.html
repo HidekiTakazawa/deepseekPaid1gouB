@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>中国語学習アプリ（第1号・分離版）</title>
+  <style>
+    body { font-family: 'Hiragino Sans', 'Meiryo', sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #333; background-color: #f9f9f9; }
+    #loginScreen { background: #fff; padding: 30px; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); text-align: center; margin-top: 50px; }
+    #loginScreen h2 { color: #4a90d9; margin-top: 0; }
+    .key-input { width: 80%; padding: 12px; font-size: 18px; border: 2px solid #ccc; border-radius: 8px; margin: 20px 0; text-align: center; letter-spacing: 2px; }
+    .key-input:focus { border-color: #4a90d9; outline: none; }
+    .login-btn { background-color: #4a90d9; color: white; border: none; padding: 12px 30px; font-size: 18px; border-radius: 8px; cursor: pointer; font-weight: bold; width: 80%; }
+    .login-btn:hover { background-color: #3570b0; }
+    .stripe-btn { background-color: #6772E5; color: white; border: none; padding: 12px 20px; font-size: 16px; border-radius: 8px; cursor: pointer; font-weight: bold; width: 80%; margin-top: 10px; }
+    .stripe-btn:hover { background-color: #5469d4; }
+    
+    .header-controls { background-color: #fff; padding: 15px; border-radius: 8px; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+    select { padding: 8px; font-size: 16px; border-radius: 5px; border: 1px solid #ccc; flex-grow: 1; }
+    .sentence-box { background-color: #f0f7ff; border: 2px solid #4a90d9; border-radius: 10px; padding: 20px; margin: 20px 0; text-align: center; }
+    .pinyin-text { color: #e67e22; font-size: 18px; margin-bottom: 5px; font-family: Arial, sans-serif; }
+    .chinese-text { font-size: 28px; font-weight: bold; margin: 10px 0; }
+    .hint-text { color: #666; font-size: 14px; margin-top: 10px; }
+    textarea { width: 100%; height: 100px; padding: 10px; font-size: 16px; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; resize: vertical; }
+    button { background-color: #4a90d9; color: white; border: none; padding: 10px 20px; font-size: 16px; border-radius: 5px; cursor: pointer; margin: 10px 5px 10px 0; }
+    button:hover { background-color: #3570b0; }
+    button:disabled { background-color: #ccc; cursor: not-allowed; }
+    .speak-btn { background-color: #ff9800; }
+    .speak-btn:hover { background-color: #e68900; }
+    .mic-btn { background-color: #e74c3c; }
+    .mic-btn:hover { background-color: #c0392b; }
+    .copy-btn { background-color: #27ae60; width: 100%; margin-top: 15px; font-weight: bold; }
+    .copy-btn:hover { background-color: #219653; }
+    .recording { animation: pulse 1.5s infinite; }
+    @keyframes pulse { 0% { background-color: #e74c3c; } 50% { background-color: #ff7675; } 100% { background-color: #e74c3c; } }
+    .feedback { background-color: #e8f5e9; border-radius: 5px; padding: 15px; margin-top: 20px; line-height: 1.6; }
+    .progress-text { font-size: 14px; color: #666; text-align: right; margin-bottom: -10px; font-weight: bold; }
+    #historyContent { background: #fff; padding: 15px; border: 1px solid #ccc; border-radius: 5px; max-height: 400px; overflow-y: auto; white-space: pre-wrap; font-size: 14px; line-height: 1.5; }
+    .history-item { border-bottom: 1px dashed #ccc; padding-bottom: 15px; margin-bottom: 15px; }
+    .history-item:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+  </style>
+</head>
+<body>
+  
+  <div id="loginScreen">
+    <h2>🔒 アプリのロック解除</h2>
+    <p>ご利用にはライセンスキーが必要です。</p>
+    <input type="text" id="licenseKeyInput" class="key-input" placeholder="例: TEST-1234">
+    <button class="login-btn" id="loginBtn" onclick="login()">利用開始</button>
+    <hr style="margin: 30px 0; border: 0; border-top: 1px solid #eee;">
+    <p style="color: #666; font-size: 14px;">キーをお持ちでない方はこちら</p>
+    <a href="https://stripe.com/jp" target="_blank">
+      <button class="stripe-btn">💳 利用権を購入する</button>
+    </a>
+  </div>
+
+  <div id="appContainer" style="display:none;">
+    <h1>🇨🇳 中国語学習アプリ</h1>
+    
+    <div class="header-controls">
+      <label for="sheetSelect">📂 シート選択:</label>
+      <select id="sheetSelect" onchange="loadSheetData()">
+        <option value="">読み込み中...</option>
+      </select>
+      <button onclick="logout()" style="background-color: #95a5a6; padding: 8px 15px; font-size: 14px; margin: 0;">ログアウト</button>
+      <a href="https://billing.stripe.com/p/login/cNi3cnezc5JR7RgddZ1kA00" target="_blank"
+         style="font-size: 12px; color: #666; margin-left: 15px;">
+        契約内容の確認・解約はこちら
+      </a>
+    </div>
+    
+    <div id="learningArea">
+      <div class="progress-text" id="progressText"></div>
+      <div class="sentence-box">
+        <div class="pinyin-text" id="pinyinText"></div>
+        <div class="chinese-text" id="questionChinese">読み込み中...</div>
+        <div class="hint-text" id="hintText"></div>
+      </div>
+      <div>
+        <button class="speak-btn" onclick="speakChinese()">🔊 音声を聞く</button>
+        <button onclick="nextQuestion()">🔄 次の問題</button>
+      </div>
+      <div style="margin-top: 20px;">
+        <label>あなたの回答（中国語で入力してください）:</label>
+        <textarea id="userAnswer" placeholder="ここに中国語で回答を入力...&#10;※Enterキーで送信（Shift+Enterで改行）"></textarea>
+      </div>
+      <div>
+        <button class="mic-btn" id="micBtn" onclick="startSpeechRecognition()">🎤</button>
+        <button id="submitBtn" onclick="submitAnswer()">✓ 回答をチェック</button>
+      </div>
+      <div id="feedbackArea" class="feedback" style="display:none;">
+        <strong>📝 AIからのアドバイス:</strong>
+        <div id="feedbackContent" style="margin-top: 10px;"></div>
+      </div>
+    </div>
+
+    <div id="historyArea" style="display:none;">
+      <h2>📊 学習完了！今回の履歴</h2>
+      <div id="historyContent"></div>
+      <button class="copy-btn" onclick="copyHistory()">📋 履歴をクリップボードにコピー</button>
+      <button onclick="loadSheetData()" style="width: 100%; margin-top: 10px;">🔄 もう一度このシートを学習する</button>
+    </div>
+  </div>
+  
+  <script>
+    // ★★★ ここにそれぞれのGASのデプロイURLを貼り付けてください ★★★
+    const GAS_LICENSE_URL = 'https://script.google.com/macros/s/AKfycby_h5wQX09teIr6CgZ3xnsbSDegoS-BbQPAIPvFwlH61P79hWQ5t8jN_OrxF5aPuZ1k_w/exec'; // 手順1の「ライセンス管理GAS」のURL
+    const GAS_APP_URL = 'https://script.google.com/macros/s/AKfycbwu95F0I58EpznCPWn8G-arfqBr5AgHw88VF-U0fftbYjTr6k63MOMydA4Qy9h-nBBj/exec'; // 手順2の「第1号GAS」のURL
+    
+    let currentLicenseKey = localStorage.getItem('chineseAppLicenseKey') || '';
+    let currentSheetData = []; 
+    let currentIndex = 0;      
+    let currentQuestion = null;
+    let sessionHistory = []; 
+    let isEvaluating = false; 
+
+    window.onload = function() {
+      if (currentLicenseKey) {
+        document.getElementById('licenseKeyInput').value = currentLicenseKey;
+      }
+    };
+
+    // ★ライセンス管理GASと通信する関数
+    async function fetchFromLicenseGAS(payload) {
+      payload.licenseKey = currentLicenseKey;
+      try {
+        const response = await fetch(GAS_LICENSE_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain' },
+          body: JSON.stringify(payload)
+        });
+        const data = await response.json();
+        
+        if (data.error) {
+          // エラーメッセージ（無効なキー、または回数制限オーバー）を表示
+          alert(data.error);
+          if (data.error.includes("無効") || data.error.includes("見つかりません")) {
+            logout();
+          }
+          return null;
+        }
+        return data;
+      } catch (error) {
+        alert('ライセンスサーバーとの通信エラー: ' + error.message);
+        return null;
+      }
+    }
+
+    // ★アプリGAS（第1号GAS）と通信する関数
+    async function fetchFromAppGAS(payload) {
+      try {
+        const response = await fetch(GAS_APP_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain' },
+          body: JSON.stringify(payload)
+        });
+        const data = await response.json();
+        if (data.error) throw new Error(data.error);
+        return data;
+      } catch (error) {
+        alert('アプリサーバーとの通信エラー: ' + error.message);
+        return null;
+      }
+    }
+    
+    async function login() {
+      const keyInput = document.getElementById('licenseKeyInput').value.trim();
+      if (!keyInput) {
+        alert('ライセンスキーを入力してください。');
+        return;
+      }
+      
+      const btn = document.getElementById('loginBtn');
+      btn.textContent = '認証中...';
+      btn.disabled = true;
+      
+      currentLicenseKey = keyInput;
+      
+      // ライセンス管理GASに問い合わせ（ログイン時は回数カウントされません）
+      const data = await fetchFromLicenseGAS({ action: 'verifyLicense' });
+      
+      btn.textContent = '利用開始';
+      btn.disabled = false;
+      
+      if (data && data.valid) {
+        localStorage.setItem('chineseAppLicenseKey', keyInput);
+        document.getElementById('loginScreen').style.display = 'none';
+        document.getElementById('appContainer').style.display = 'block';
+        initializeApp();
+      } else {
+        currentLicenseKey = '';
+      }
+    }
+
+    function logout() {
+      currentLicenseKey = '';
+      localStorage.removeItem('chineseAppLicenseKey');
+      document.getElementById('licenseKeyInput').value = '';
+      document.getElementById('appContainer').style.display = 'none';
+      document.getElementById('loginScreen').style.display = 'block';
+    }
+
+    async function initializeApp() {
+      // アプリGASからシート一覧を取得
+      const data = await fetchFromAppGAS({ action: 'getSheets' });
+      if (data && data.sheets) {
+        const select = document.getElementById('sheetSelect');
+        select.innerHTML = '';
+        data.sheets.forEach(function(sheet) {
+          const option = document.createElement('option');
+          option.value = sheet;
+          option.textContent = sheet;
+          select.appendChild(option);
+        });
+        if(data.sheets.length > 0) {
+          await loadSheetData();
+        } else {
+          select.innerHTML = '<option>シートがありません</option>';
+        }
+      }
+      
+      document.getElementById('userAnswer').addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault();
+          if (!isEvaluating) submitAnswer();
+        }
+      });
+    }
+    
+    async function loadSheetData() {
+      const sheetName = document.getElementById('sheetSelect').value;
+      if (!sheetName) return;
+      
+      document.getElementById('learningArea').style.display = 'block';
+      document.getElementById('historyArea').style.display = 'none';
+      document.getElementById('questionChinese').textContent = 'データ読み込み中...';
+      document.getElementById('pinyinText').textContent = '';
+      document.getElementById('hintText').textContent = '';
+      document.getElementById('userAnswer').value = '';
+      document.getElementById('feedbackArea').style.display = 'none';
+      document.getElementById('progressText').textContent = '';
+      
+      sessionHistory = []; 
+      
+      // アプリGASからシートデータを取得
+      const data = await fetchFromAppGAS({ action: 'getSheetData', sheetName: sheetName });
+
+      if (data && data.data && data.data.length > 0) {
+        currentSheetData = data.data;
+        currentIndex = 0;
+        showCurrentQuestion();
+      } else {
+        currentSheetData = [];
+        document.getElementById('questionChinese').textContent = 'このシートにはデータがありません';
+      }
+    }
+
+    function showCurrentQuestion() {
+      if (currentSheetData.length === 0) return;
+      currentQuestion = currentSheetData[currentIndex];
+      document.getElementById('progressText').textContent = `${currentIndex + 1} / ${currentSheetData.length} 問目`;
+      document.getElementById('questionChinese').textContent = currentQuestion.chinese;
+      document.getElementById('pinyinText').textContent = currentQuestion.pinyin ? currentQuestion.pinyin : '';
+      document.getElementById('hintText').textContent = currentQuestion.hint ? '💡 ヒント: ' + currentQuestion.hint : '';
+      document.getElementById('userAnswer').value = '';
+      document.getElementById('feedbackArea').style.display = 'none';
+      speakChinese();
+    }
+
+    function nextQuestion() {
+      if (currentSheetData.length === 0) return;
+      currentIndex++;
+      if (currentIndex >= currentSheetData.length) {
+        showHistoryScreen();
+      } else {
+        showCurrentQuestion();
+      }
+    }
+    
+    function showHistoryScreen() {
+      document.getElementById('learningArea').style.display = 'none';
+      document.getElementById('historyArea').style.display = 'block';
+      const contentDiv = document.getElementById('historyContent');
+      contentDiv.innerHTML = '';
+      if (sessionHistory.length === 0) {
+        contentDiv.innerHTML = '回答履歴がありません。';
+        return;
+      }
+      sessionHistory.forEach((item, index) => {
+        const div = document.createElement('div');
+        div.className = 'history-item';
+        div.innerHTML = `<strong>Q${index + 1}: ${item.question}</strong><br><span style="color: #2980b9;">あなたの回答: ${item.answer}</span><br><div style="margin-top: 5px; color: #555;">${item.feedback.replace(/\n/g, '<br>')}</div>`;
+        contentDiv.appendChild(div);
+      });
+    }
+    
+    function copyHistory() {
+      const sheetName = document.getElementById('sheetSelect').value;
+      const dateStr = new Date().toLocaleString('ja-JP');
+      let text = `【中国語学習履歴】\nシート名: ${sheetName}\n実施日時: ${dateStr}\n\n`;
+      sessionHistory.forEach((item, index) => {
+        text += `■ Q${index + 1}: ${item.question}\n[回答] ${item.answer}\n[AI評価]\n${item.feedback}\n----------------------------------------\n\n`;
+      });
+      navigator.clipboard.writeText(text).then(() => alert('📋 学習履歴をクリップボードにコピーしました！')).catch(err => alert('コピーに失敗しました: ' + err));
+    }
+    
+    function speakChinese() {
+      if (currentQuestion && currentQuestion.chinese) {
+        const utterance = new SpeechSynthesisUtterance(currentQuestion.chinese);
+        utterance.lang = 'zh-CN';
+        utterance.rate = 0.8;
+        window.speechSynthesis.speak(utterance);
+      }
+    }
+    
+    function startSpeechRecognition() {
+      if (!('webkitSpeechRecognition' in window)) return alert('お使いのブラウザは音声入力に対応していません。');
+      const recognition = new webkitSpeechRecognition();
+      recognition.lang = 'zh-CN';
+      recognition.interimResults = false;
+      recognition.maxAlternatives = 1;
+      const micBtn = document.getElementById('micBtn');
+      micBtn.classList.add('recording');
+      recognition.onresult = function(event) { document.getElementById('userAnswer').value = event.results[0][0].transcript; };
+      recognition.onerror = function(event) { alert('音声認識エラー: ' + event.error); };
+      recognition.onend = function() { micBtn.classList.remove('recording'); };
+      recognition.start();
+    }
+    
+    async function submitAnswer() {
+      const userAnswer = document.getElementById('userAnswer').value;
+      if (!userAnswer.trim()) return alert('回答を入力してください。');
+      if (!currentQuestion) return;
+      
+      isEvaluating = true;
+      document.getElementById('submitBtn').disabled = true;
+      document.getElementById('submitBtn').textContent = '⏳ 評価中...';
+      document.getElementById('feedbackContent').textContent = 'AIが評価中...';
+      document.getElementById('feedbackArea').style.display = 'block';
+      
+      // ★ライセンス管理GASに評価を依頼（ここで回数制限チェックとカウントアップが行われます）
+      const data = await fetchFromLicenseGAS({
+        action: 'evaluateAnswer',
+        questionChinese: currentQuestion.chinese,
+        userAnswer: userAnswer
+      });
+
+      if (data && data.feedback) {
+        document.getElementById('feedbackContent').innerHTML = data.feedback.replace(/\n/g, '<br>');
+        sessionHistory.push({ question: currentQuestion.chinese, answer: userAnswer, feedback: data.feedback });
+      } else {
+        // エラー（回数制限オーバーなど）の場合は、自動的に非表示にします
+        document.getElementById('feedbackArea').style.display = 'none';
+      }
+      
+      isEvaluating = false;
+      document.getElementById('submitBtn').disabled = false;
+      document.getElementById('submitBtn').textContent = '✓ 回答をチェック';
+    }
+  </script>
+</body>
+</html>
